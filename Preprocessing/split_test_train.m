@@ -11,7 +11,7 @@ function [train_data,test_data] = split_test_train(trial,train_no)
     train_ind= splitter(1:train_no);
     test_ind = splitter(train_no+1:end);
     
-    train_data = trial(train_ind);
-    test_data = trial(test_ind);
+    train_data = trial(train_ind,:);
+    test_data = trial(test_ind,:);
 
 end
