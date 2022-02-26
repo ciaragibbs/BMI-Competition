@@ -18,17 +18,17 @@ function trialProcessed = bin_and_sqrt(trial, group, to_sqrt)
             no_neurons = size(all_spikes,1);
             no_points = size(all_spikes,2);
             t_new = 1: group : no_points +1; % because it might not round add a 1 
-            binned_spikes = zeros(no_neurons,numel(t_new)-1);
+            spikes = zeros(no_neurons,numel(t_new)-1);
 
             for k = 1 : numel(t_new) - 1 % get rid of the paddded bin
-                binned_spikes(:,k) = sum(all_spikes(:,t_new(k):t_new(k+1)-1),2);
+                spikes(:,k) = sum(all_spikes(:,t_new(k):t_new(k+1)-1),2);
             end
 
             if to_sqrt
-                binned_spikes = sqrt(binned_spikes);
+                spikes = sqrt(spikes);
             end
 
-            trialProcessed(j,i).binned_spikes = binned_spikes;
+            trialProcessed(j,i).binned_spikes = spikes;
 
         end
     end
