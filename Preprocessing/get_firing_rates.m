@@ -25,6 +25,8 @@ function trialFinal = get_firing_rates(trialProcessed,group,scale_window)
             end
             
             trialFinal(j,i).rates = hold_rates;
+            trialFinal(j,i).handPos = trialProcessed(j,i).handPos;
+            trialFinal(j,i).bin_size = trialProcessed(j,i).bin_size; % recorded in ms
         end
     end
 

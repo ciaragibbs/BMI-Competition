@@ -29,6 +29,7 @@ function trialProcessed = bin_and_sqrt(trial, group, to_sqrt)
             end
 
             trialProcessed(j,i).spikes = spikes;
+            trialProcessed(j,i).handPos = trial(j,i).handPos(1:2,:);
             trialProcessed(j,i).bin_size = group; % recorded in ms
         end
     end
