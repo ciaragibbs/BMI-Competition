@@ -9,7 +9,7 @@ function trialProcessed = bin_and_sqrt(trial, group, to_sqrt)
 % to_sqrt = binary , 1 -> sqrt spikes, 0 -> leave
 
     trialProcessed = struct;
-    trialProcessed.bin_size = group; % recorded in ms
+    
 
     for i = 1: size(trial,2)
         for j = 1: size(trial,1)
@@ -28,8 +28,8 @@ function trialProcessed = bin_and_sqrt(trial, group, to_sqrt)
                 spikes = sqrt(spikes);
             end
 
-            trialProcessed(j,i).binned_spikes = spikes;
-
+            trialProcessed(j,i).spikes = spikes;
+            trialProcessed(j,i).bin_size = group; % recorded in ms
         end
     end
     
