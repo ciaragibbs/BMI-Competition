@@ -39,14 +39,14 @@ net.divideParam.testRatio = 0/100;
 input_val = preprocess_input(trial(90,1).spikes,dt);
 t = 1:dt:size(trial(90,1).spikes,2)-(1/dt);
 vel_tr = find_velocity(trial(90,1));
-output_val = preprocess_output(vel_tr.velocity,dt);
+% output_val = preprocess_output(vel_tr.velocity,dt);
 pred = net(input_val');
 
 % x velocity
 figure;hold on
 plot(t(1:end-1),pred(1,:))
-plot(t(1:end-1),output_val(:,1))
+plot(vel_tr.velocity(1,:))
 % y velocity
 figure;hold on
 plot(t(1:end-1),pred(2,:))
-plot(t(1:end-1),output_val(:,2))
+plot(vel_tr.velocity(2,:))
