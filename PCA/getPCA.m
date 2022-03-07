@@ -1,4 +1,4 @@
-function [prinComp,evals,sortIdx,ev]= getPCA(data)
+function [prinComp,evals]= getPCA(data)
 % subtract the cross-trial mean
 dataCT = data - mean(data,2);
 % calculate the covariance matrix
