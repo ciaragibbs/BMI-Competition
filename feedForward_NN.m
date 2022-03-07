@@ -19,7 +19,7 @@ for tr=1:50
    vels = [vels vel.velocity(1:2,:)];
 end
 
-dt = 20; %Batch size
+dt = 5; %Batch size
 % Instead of using the spikes as input to the NN, we take use the firing
 % rate of each neuron within a batch of dt ms
 neural_data = preprocess_input(spikes,dt); 
@@ -35,18 +35,18 @@ net.divideParam.testRatio = 0/100;
 % Train NN
 [net, ~] = train(net, neural_data', output_binned');
 
-% Example velocity prediction using trial 90 and direction 1
+% Example velocity and x-y trajectory prediction using trial 90 and direction 1
 input_val = preprocess_input(trial(90,1).spikes,dt);
-t = 1:dt:size(trial(90,1).spikes,2)-(1/dt);
-vel_tr = find_velocity(trial(90,1));
-% output_val = preprocess_output(vel_tr.velocity,dt);
+t = 0:dt:size(trial(90,1).spikes,2);
+
 pred = net(input_val');
 
-% x velocity
-figure;hold on
-plot(t(1:end-1),pred(1,:))
-plot(vel_tr.velocity(1,:))
-% y velocity
-figure;hold on
-plot(t(1:end-1),pred(2,:))
-plot(vel_tr.velocity(2,:))
+interp_predx = interp1(t(1:end-1),pred(1,:),0:size(trial(90,1).spikes,2),'linear');
+interp_predy = interp1(t(1:end-1),pred(2,:),0:size(trial(90,1).spikes,2),'linear');
+
+x_traj = cumsum([trial(90,1).handPos(1,1) interp_predx]);
+y_traj = cumsum([trial(90,1).handPos(2,1) interp_predy]);
+figure;
+plot(x_traj,y_traj)
+hold on;
+plot(trial(90,1).handPos(1,:),trial(90,1).handPos(2,:))
