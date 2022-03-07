@@ -1,5 +1,5 @@
 %% PCA+LDA Analysis i.e. Most Discriminant Feature Method
-% Last update: 07/03/22 (incomplete)
+% Last update: 07/03/22 (needs to be checked but does run and give sensible output)
 
 load("monkeydata_training.mat")
 noDirections = 8;
