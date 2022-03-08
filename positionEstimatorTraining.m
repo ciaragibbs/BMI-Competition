@@ -1,6 +1,6 @@
 function [modelParameters]=positionEstimatorTraining(trial)
     for direc=1:8
-    fprintf('Training for direction ', num2str(direc))
+        fprintf('Training for direction ', num2str(direc))
         spikes = [];
         vels = [];
         num_neurons = 98;
