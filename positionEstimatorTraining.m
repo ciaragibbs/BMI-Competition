@@ -1,6 +1,13 @@
 function [modelParameters]=positionEstimatorTraining(trial)
+%     modelParameters=cell(1,8);
+% Create NN
+    sizeHidden = [5]; %num of neuron in each hidden Layer
+    net = fitnet(sizeHidden,'trainlm');
+    net.divideParam.trainRatio = 80/100;
+    net.divideParam.valRatio = 20/100;
+    net.divideParam.testRatio = 0/100;
     for direc=1:8
-        fprintf('Training for direction ', num2str(direc))
+        fprintf(['Training for direction ', num2str(direc)])
         spikes = [];
         vels = [];
         num_neurons = 98;
@@ -25,17 +32,9 @@ function [modelParameters]=positionEstimatorTraining(trial)
             neural_data = preprocess_input(spikes,dt); 
             output_binned = preprocess_output(vels,dt); %Output is separated in batches as well
 
-            % Create NN
-            sizeHidden = [20]; %num of neuron in each hidden Layer
-            net = fitnet(sizeHidden,'trainlm');
-            net.divideParam.trainRatio = 80/100;
-            net.divideParam.valRatio = 20/100;
-            net.divideParam.testRatio = 0/100;
-
             % Train NN
-            [net, ~] = train(net, neural_data', output_binned');
-
-            modelParameters[direc] = net;
+            [net, ~] = train(net, neural_data', output_binned');  
     end
+    modelParameters = net;
 
 end
