@@ -1,4 +1,4 @@
-function [outLabels]= positionEstimator(testData, modelParameters)
+function [x,y]= positionEstimator(past_current_trial, modelParameters)
 
 % Last edit: 14/03/22
 % Authors: Ciara Gibbs, Fabio Oliva, Yinzhe Wu, Zhiyu Zheng
@@ -15,46 +15,89 @@ function [outLabels]= positionEstimator(testData, modelParameters)
 % decodedPosY: predicted Y position according to the PCR model
 % newParameters: any modifications in classification etc stored here
 
+            noDirections = 8;
+            group = 20;
+            win = 50;
+            trialProcess =  bin_and_sqrt(past_current_trial, group, 1); % preprocessing
+            trialFinal = get_firing_rates(trialProcess,group,win); % preprocessing (including smoothing)
+            reachAngles = [30 70 110 150 190 230 310 350]; % given in degrees
+            T_end = size(past_current_trial.spikes,2)
+            noNeurons = size(trialFinal(1,1).rates,1);
 
-noDirections = 8;
-group = 20;
-win = 50;
-noTest =  length(testData); % because it is set in the testFunction_for_students_MTb file
-trialProcess =  bin_and_sqrt(testData, group, 1); % preprocessing
-trialFinal = get_firing_rates(trialProcess,group,win); % preprocessing (including smoothing)
-reachAngles = [30 70 110 150 190 230 310 350]; % given in degrees
+            % need to get (neurons x time)x trial for use with PCA and PCR
+            firingData = reshape(trialFinal.rates, [], 1);
 
-% now that various timewindows are being tested, trimmer is completely
-% parameterised
-trimmer = 560/group; % make the trajectories the same length
-firingData = zeros([size(trialFinal(1,1).rates,1)*trimmer,noTest*noDirections]);
-noNeurons = size(trialFinal(1,1).rates,1);
-noIts = 1;% need to calculate the mean RMSE and std RMSE across iterations e.g. 10
+            % get the relevant parameters from the model
+            if T_end >=320 && T_end <=560
 
-newParameters = struct;
+                indexer =  (T_end/group)-(320/group)+1;
+                WTrain = modelParameters.classify(indexer).wLDA_kNN;
+                pcaDim = modelParameters.classify(indexer).dPCA_kNN;
+                ldaDim = modelParameters.classify(indexer).dLDA_kNN;
+                optimTrain = modelParameters.classify(indexer).wOpt_kNN;
+                meanFiringTrain = modelParameters.classify(indexer).mFire_kNN;
+                meanClusterTrain = modelParameters.classify(indexer).mCluster_kNN;
+                % not sure whether it should be the mean from train or test
+                WTest = optimTrain'*(firingData-meanFiringTrain); 
+                outLabel = getKNNs(WTest, WTrain,ldaDim,8);
 
-% need to get (neurons x time)x trial for use with PCA
-for i = 1: noDirections
-    for j = 1: noTest
-        for k = 1: trimmer
-            firingData(noNeurons*(k-1)+1:noNeurons*k,noTest*(i-1)+j) = trialFinal(j,i).rates(:,k);     
-        end
-    end
-end
+            elseif T_end >560 % i.e. just keep using the parameters derived with the largest length of training time
+ 
+                indexer =  13;
+                WTrain = modelParameters.classify(indexer).wLDA_kNN;
+                pcaDim = modelParameters.classify(indexer).dPCA_kNN;
+                ldaDim = modelParameters.classify(indexer).dLDA_kNN;
+                optimTrain = modelParameters.classify(indexer).wOpt_kNN;
+                meanFiringTrain = modelParameters.classify(indexer).mFire_kNN;
+                meanClusterTrain = modelParameters.classify(indexer).mCluster_kNN;
+                % not sure whether it should be the mean from train or test
+                size(firingData)
+                size(meanFiringTrain)
+                WTest = optimTrain'*(firingData(1:2744)-meanFiringTrain); 
+                outLabel = getKNNs(WTest, WTrain,ldaDim,8);
 
-% get the relevant parameters from the model
 
-WTrain = modelParameters.wLDA_kNN;
-pcaDim = modelParameters.dPCA_kNN;
-ldaDim = modelParameters.dLDA_kNN;
-optimTrain = modelParameters.wOpt_kNN;
-meanFiringTrain = modelParameters.mFire_kNN;
-meanClusterTrain = modelParameters.mCluster_kNN;
-% not sure whether it should be the mean from train or test
-WTest = optimTrain'*(firingData-meanFiringTrain); 
+            end
 
-outLabels = getKNNs(WTest, WTrain,ldaDim,8);
 
+            if T_end >=320 && T_end <=560
+                
+                indexer =  (T_end/group)-(320/group)+1;
+                avX = modelParameters.averages(indexer).avX(:,outLabel);
+                avY = modelParameters.averages(indexer).avY(:,outLabel);
+                meanFiring = modelParameters.pcr(outLabel,indexer).fMean;
+                bx = modelParameters.pcr(outLabel,indexer).bx;
+                by = modelParameters.pcr(outLabel,indexer).by;
+                x = (firingData - mean(meanFiring))'*bx + avX;
+                y = (firingData - mean(meanFiring))'*by + avY;
+                try
+                    x =  x(T_end,1);
+                    y = y(T_end,1);
+                catch
+                     x =  x(end,1);
+                    y = y(end,1);
+                end
+
+            elseif T_end >560 % i.e. just keep using the model with the largest length of training time
+
+                avX = modelParameters.averages(13).avX(:,outLabel);
+                avY = modelParameters.averages(13).avY(:,outLabel);
+                meanFiring = modelParameters.pcr(outLabel,13).fMean;
+                bx = modelParameters.pcr(outLabel,13).bx;
+                by = modelParameters.pcr(outLabel,13).by;
+                x = (firingData(1:length(bx)) - mean(meanFiring))'*bx + avX;
+                y = (firingData(1:length(by)) - mean(meanFiring))'*by + avY;
+                try
+                    x =  x(T_end,1);
+                    y = y(T_end,1);
+                catch
+                     x =  x(end,1);
+                    y = y(end,1);
+                end
+            end
+
+            
+            
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -91,8 +134,8 @@ function trialProcessed = bin_and_sqrt(trial, group, to_sqrt)
             end
 
             trialProcessed(j,i).spikes = spikes;
-            trialProcessed(j,i).handPos = trial(j,i).handPos(1:2,:);
-            trialProcessed(j,i).bin_size = group; % recorded in ms
+%             trialProcessed(j,i).handPos = trial(j,i).handPos(1:2,:);
+%             trialProcessed(j,i).bin_size = group; % recorded in ms
         end
     end
     
@@ -126,8 +169,8 @@ function trialFinal = get_firing_rates(trialProcessed,group,scale_window)
             end
             
             trialFinal(j,i).rates = hold_rates;
-            trialFinal(j,i).handPos = trialProcessed(j,i).handPos;
-            trialFinal(j,i).bin_size = trialProcessed(j,i).bin_size; % recorded in ms
+%             trialFinal(j,i).handPos = trialProcessed(j,i).handPos;
+%             trialFinal(j,i).bin_size = trialProcessed(j,i).bin_size; % recorded in ms
         end
     end
 

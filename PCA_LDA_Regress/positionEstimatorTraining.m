@@ -1,4 +1,4 @@
-function  [modelParameters,princComp,W] = positionEstimatorTraining(trainingData)
+function  [modelParameters,firingData] = positionEstimatorTraining(trainingData)
 
 % Last edit: 14/03/22
 % Authors: Ciara Gibbs, Fabio Oliva, Yinzhe Wu, Zhiyu Zheng
@@ -10,85 +10,84 @@ noTrain =  length(trainingData); % because it is set in the testFunction_for_stu
 trialProcess =  bin_and_sqrt(trainingData, group, 1); % preprocessing
 trialFinal = get_firing_rates(trialProcess,group,win); % preprocessing (including smoothing)
 reachAngles = [30 70 110 150 190 230 310 350]; % given in degrees
-trimmer = 500/group; % make the trajectories the same length
-firingData = zeros([size(trialFinal(1,1).rates,1)*trimmer,noTrain*noDirections]);
-noNeurons = size(trialFinal(1,1).rates,1);
 
+noNeurons = size(trialFinal(1,1).rates,1);
+modelParameters = struct;
 startTime = 320;
 endTime = 560;
-trimmer =  endTime/group;
-noIts = 1;% need to calculate the mean RMSE and std RMSE across iterations e.g. 10
-
-modelParameters = struct;
-
-% need to get (neurons x time)x trial
-for i = 1: noDirections
-    for j = 1: noTrain
-        for k = 1: trimmer
-            firingData(noNeurons*(k-1)+1:noNeurons*k,noTrain*(i-1)+j) = trialFinal(j,i).rates(:,k);     
+count = 1;
+timePoints = [startTime:20:endTime]/group
+for trimmer = timePoints
+    trimmer
+    % need to get (neurons x time)x trial
+    for i = 1: noDirections
+        for j = 1: noTrain
+            for k = 1: trimmer
+                firingData(noNeurons*(k-1)+1:noNeurons*k,noTrain*(i-1)+j) = trialFinal(j,i).rates(:,k);     
+            end
         end
     end
+
+
+    % The aim of the next section is to identify the reaching direction
+    % associated with each trial of this monkey's session
+
+    % supervised labelling for Linear Discrminant Analysis
+    dirLabels = [1*ones(1,noTrain),2*ones(1,noTrain),3*ones(1,noTrain),4*ones(1,noTrain),5*ones(1,noTrain),6*ones(1,noTrain),7*ones(1,noTrain),8*ones(1,noTrain)];
+
+    % implement Principal Component Analysis 
+    [princComp,eVals]= getPCA(firingData);
+
+
+    % https://www.doc.ic.ac.uk/~dfg/ProbabilisticInference/old_IDAPILecture15.pdf
+
+    % use Linear Discriminant Analysis on Reduced Dimension Firing Data
+    matBetween = zeros(size(firingData,1),noDirections);
+    % for LDA need to get the across-class and within-class scatter matrices
+    for i = 1: noDirections
+        matBetween(:,i) =  mean(firingData(:,noTrain*(i-1)+1:i*noTrain),2);
+    end
+    scatBetween = (matBetween - mean(firingData,2))*(matBetween - mean(firingData,2))';
+    scatGrand =  (firingData - mean(firingData,2))*(firingData - mean(firingData,2))';
+    scatWithin = scatGrand - scatBetween; % as per pdf above
+    %^^ double checking - done
+
+
+    pcaDim = 50; % just arbitrary atm... will need to look at the eigenvalues to get a better estimate!
+    % for this to work, a regression model needs to be constructed for each
+    % angle, for a given number of PCA dimensions
+    ldaDim = 2; % also arbitrary atm...
+
+    % with this need to optimise the Fisher's criterion - in particular the
+    % most discriminant feature method (i.e. PCA --> LDA to avoid issues with
+    % low trial: neuron ratios)
+    [eVectsLDA, eValsLDA] = eig(((princComp(:,1:pcaDim)'*scatWithin*princComp(:,1:pcaDim))^-1 )*(princComp(:,1:pcaDim)'*scatBetween*princComp(:,1:pcaDim)));
+    [~,sortIdx] = sort(diag(eValsLDA),'descend');
+    % optimum output
+    optimOut = princComp(:,1:pcaDim)*eVectsLDA(:,sortIdx(1:ldaDim));
+    % optimum projection from the Most Discriminant Feature Method....!
+    W = optimOut'*(firingData - mean(firingData,2));
+
+
+    % for now just going to try with a kNN classifier when testing, but will
+    % see if another classifier ends up better later...
+
+    % store these weightings in the model parameter struct
+    modelParameters.classify(count).wLDA_kNN = W;
+    modelParameters.classify(count).dPCA_kNN = pcaDim;
+    modelParameters.classify(count).dLDA_kNN = ldaDim;
+    modelParameters.classify(count).wOpt_kNN = optimOut;
+    modelParameters.classify(count).mFire_kNN = mean(firingData,2);
+
+    % get the mean of the clusters according to the label
+    meanClusters = [];
+    for i = 1: noDirections
+        meanClusters = [meanClusters, mean(W(:,dirLabels == i))];
+    end
+
+    modelParameters.classify(count).mCluster_kNN = meanClusters;
+    count = count+1
 end
-
-
-% The aim of the next section is to identify the reaching direction
-% associated with each trial of this monkey's session
-
-% supervised labelling for Linear Discrminant Analysis
-dirLabels = [1*ones(1,noTrain),2*ones(1,noTrain),3*ones(1,noTrain),4*ones(1,noTrain),5*ones(1,noTrain),6*ones(1,noTrain),7*ones(1,noTrain),8*ones(1,noTrain)];
-
-% implement Principal Component Analysis 
-[princComp,eVals]= getPCA(firingData);
-
-
-% https://www.doc.ic.ac.uk/~dfg/ProbabilisticInference/old_IDAPILecture15.pdf
-
-% use Linear Discriminant Analysis on Reduced Dimension Firing Data
-matBetween = zeros(size(firingData,1),noDirections);
-% for LDA need to get the across-class and within-class scatter matrices
-for i = 1: noDirections
-    matBetween(:,i) =  mean(firingData(:,noTrain*(i-1)+1:i*noTrain),2);
-end
-scatBetween = (matBetween - mean(firingData,2))*(matBetween - mean(firingData,2))';
-scatGrand =  (firingData - mean(firingData,2))*(firingData - mean(firingData,2))';
-scatWithin = scatGrand - scatBetween; % as per pdf above
-%^^ double checking - done
-
-
-pcaDim = 50; % just arbitrary atm... will need to look at the eigenvalues to get a better estimate!
-% for this to work, a regression model needs to be constructed for each
-% angle, for a given number of PCA dimensions
-ldaDim = 2; % also arbitrary atm...
-
-% with this need to optimise the Fisher's criterion - in particular the
-% most discriminant feature method (i.e. PCA --> LDA to avoid issues with
-% low trial: neuron ratios)
-[eVectsLDA, eValsLDA] = eig(((princComp(:,1:pcaDim)'*scatWithin*princComp(:,1:pcaDim))^-1 )*(princComp(:,1:pcaDim)'*scatBetween*princComp(:,1:pcaDim)));
-[~,sortIdx] = sort(diag(eValsLDA),'descend');
-% optimum output
-optimOut = princComp(:,1:pcaDim)*eVectsLDA(:,sortIdx(1:ldaDim));
-% optimum projection from the Most Discriminant Feature Method....!
-W = optimOut'*(firingData - mean(firingData,2));
-
-
-% for now just going to try with a kNN classifier when testing, but will
-% see if another classifier ends up better later...
-
-% store these weightings in the model parameter struct
-modelParameters.wLDA_kNN = W;
-modelParameters.dPCA_kNN = pcaDim;
-modelParameters.dLDA_kNN = ldaDim;
-modelParameters.wOpt_kNN = optimOut;
-modelParameters.mFire_kNN = mean(firingData,2);
-
-% get the mean of the clusters according to the label
-meanClusters = [];
-for i = 1: noDirections
-    meanClusters = [meanClusters, mean(W(:,dirLabels == i))];
-end
-
-modelParameters.mCluster_kNN = meanClusters;
-
 %PCR 
 % https://ncss-wpengine.netdna-ssl.com/wp-content/themes/ncss/pdf/Procedures/NCSS/Principal_Components_Regression.pdf
 
@@ -132,11 +131,13 @@ for i = 1: noDirections
         
         modelParameters.pcr(i,j).bx = Bx;
         modelParameters.pcr(i,j).by = By;
-        
+        modelParameters.pcr(i,j).fMean = mean(windowedFiring,1);
+        modelParameters.averages(j).avX = squeeze(mean(xn,1));
+        modelParameters.averages(j).avY = squeeze(mean(yn,1));
     end
     
-    modelParameters.avX = squeeze(mean(xn,1));
-    modelParameters.avY = squeeze(mean(yn,1));
+    
+    
     
 end
 
