@@ -2,8 +2,7 @@ function  [modelParameters,princComp,W] = positionEstimatorTraining(trainingData
 
 % Last edit: 14/03/22
 % Authors: Ciara Gibbs, Fabio Oliva, Yinzhe Wu, Zhiyu Zheng
-% TO BE COMPLETED
-
+% think it's completed...
 noDirections = 8;
 group = 20;
 win = 50;
@@ -90,19 +89,56 @@ end
 
 modelParameters.mCluster_kNN = meanClusters;
 
-% perform Principal Component Regression
+%PCR 
+% https://ncss-wpengine.netdna-ssl.com/wp-content/themes/ncss/pdf/Procedures/NCSS/Principal_Components_Regression.pdf
 
-% for it = 1:noIts
-%    
-%     % using firingData that has already been calculated above
-%     [xn,yn,xrs,yrs] = getEqualandSampled(trainData,noDirections,noTrain,group);
-%     % only take the indices that correspond to the testing intervals
-%     xTestInt = xrs(:,[startTime:group:endTime]/20,:);
-%     yTestInt = yrs(:,[startTime:group:endTime]/20,:);
-%     
-%     
-% end
+% using firingData that has already been calculated above
+[xn,yn,xrs,yrs] = getEqualandSampled(trainingData,noDirections,noTrain,group);
+% only take the indices that correspond to the testing intervals
+xTestInt = xrs(:,[startTime:group:endTime]/20,:);
+yTestInt = yrs(:,[startTime:group:endTime]/20,:);
 
+%
+% PCA/SVD
+
+timeDivision = repelem(group:group:endTime,noNeurons);
+testingTimes = startTime:group:endTime;
+% double check - done
+
+for i = 1: noDirections
+    
+    getXdirection = squeeze(xTestInt(:,:,i));
+    getYdirection = squeeze(yTestInt(:,:,i));
+    
+    for j = 1: ((endTime-startTime)/group)+1
+        
+        x4pcr = getXdirection(:,j) - mean(getXdirection(:,j));
+        y4pcr = getYdirection(:,j) - mean(getYdirection(:,j));
+        
+        windowedFiring = firingData(timeDivision <= testingTimes(j),dirLabels == i);
+        [eVects,~]= getPCA(windowedFiring);
+        % project data onto principle components
+        % arbitrary choice of no. of principal components used
+        Z = eVects(:,1:pcaDim)'*(windowedFiring - mean(windowedFiring,1));
+        % by pdf:
+        % B = PA
+        % P is the eigenvector matrix
+        % A is the an estimation formula, based on the principal component
+        % data matrix Z
+        % B is the regression coefficients,for the x and y positions
+        
+        Bx = (eVects(:,1:pcaDim)*inv(Z*Z')*Z)*x4pcr;
+        By = (eVects(:,1:pcaDim)*inv(Z*Z')*Z)*y4pcr;
+        
+        modelParameters.pcr(i,j).bx = Bx;
+        modelParameters.pcr(i,j).by = By;
+        
+    end
+    
+    modelParameters.avX = squeeze(mean(xn,1));
+    modelParameters.avY = squeeze(mean(yn,1));
+    
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%FUNCTIONS%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -144,8 +180,6 @@ function trialProcessed = bin_and_sqrt(trial, group, to_sqrt)
     end
     
 end
-
-
 
 function trialFinal = get_firing_rates(trialProcessed,group,scale_window)
 
@@ -202,6 +236,55 @@ function [prinComp,evals,sortIdx,ev]= getPCA(data)
     evals = diag(evalsDiag(sortIdx));
 end
 
+function [xn,yn,xrs,yrs] = getEqualandSampled(data,noDirections,noTrain,group)
+
+% Inputs:
+% data is the struct of data = spike or rate form, doesn't make a
+% difference
+% noDirections = number of different reaching angle directions i.e. 8
+% noTrain = number of training samples being used 
+%(note will need to add an option for train or test maybe, or maybe not
+%important...)
+% group = binning resolution of the spiking/rate data
+
+% given a change in the binning resolution of the spiking data,
+% accordingly, the position informatin must be downsampled
+
+% also all the trajectories need to be the same length, so to do this we
+% will continuously add the end value onto the trajectories that are less
+% than the max length
+
+
+% Find the maximum trajectory
+trialHolder = struct2cell(data);
+sizes = [];
+for i = [2:3: noTrain*noDirections*3]
+    sizes = [sizes, size(trialHolder{i},2)];
+end
+maxSize = max(sizes);
+clear trialHolder
+
+% preallocate for position matrices
+xn = zeros([noTrain, maxSize, noDirections]);
+yn = xn;
+% preallocate for resampled position matrices
+
+% padding position data with the end value
+for i = 1: noDirections
+    for j = 1:noTrain
+
+        xn(j,:,i) = [data(j,i).handPos(1,:),data(j,i).handPos(1,end)*ones(1,maxSize-sizes(noTrain*(i-1) + j))];
+        yn(j,:,i) = [data(j,i).handPos(2,:),data(j,i).handPos(2,end)*ones(1,maxSize-sizes(noTrain*(i-1) + j))];  
+        % resampling according to the binning size
+        tempx = xn(j,:,i);
+        tempy = xn(j,:,i);
+        xrs(j,:,i) = tempx(1:group:end);
+        yrs(j,:,i) = tempy(1:group:end);
+    
+    end
+end
+
+end
 
 
 
