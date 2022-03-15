@@ -1,5 +1,5 @@
 function output_processed = preprocess_output(handPos,dt)
-    t_start = 1;
+    t_start = 0;
     t_end = size(handPos,2);
     edges = t_start:dt:t_end;
     num_bins = size(edges,2)-1;
@@ -14,4 +14,5 @@ function output_processed = preprocess_output(handPos,dt)
           output_processed(i,j) = mean(outputs(idxs,j)); 
        end
     end
+    
 end
