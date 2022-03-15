@@ -12,7 +12,7 @@ function neural_data = preprocess_input(spikes,dt)
     end
 
 %     dt = 20;
-    t_start = 1;
+    t_start = 0;
     t_end = size(spikes,2);
 
     edges = t_start:dt:t_end;
