@@ -26,7 +26,7 @@ noNeurons = size(trialFinal(1,1).rates,1);
 % need to get (neurons x time)x trial
 for i = 1: noDirections
     for j = 1: noTrain
-        for k = 1: 560/group
+        for k = 1: endTime/group
             firingData(noNeurons*(k-1)+1:noNeurons*k,noTrain*(i-1)+j) = trialFinal(j,i).rates(:,k);     
         end
     end
@@ -34,10 +34,11 @@ end
     
 
 % removing low firing neurons - aid numerical stability in PCA
+% 98 x 672
 lowFirers = [];
 for x = 1: noNeurons
     check_rate = mean(mean(firingData(x:98:end,:)));
-    if check_rate < 0.2
+    if check_rate < 0.5
         lowFirers = [lowFirers,x];
 
     end
@@ -131,9 +132,9 @@ testingTimes = startTime:group:endTime;
 % double check - done
 
 % introduce a time shift to the data
-noNeurons = size(trialFinal(1,1).rates,1) - length(lowFirers);
-lagFactor = 0;
-firingData = [zeros(noNeurons*lagFactor, noTrain*noDirections); firingData(1:end-(noNeurons*lagFactor),:)];
+% noNeurons = size(trialFinal(1,1).rates,1) - length(lowFirers);
+% lagFactor = 0;
+% firingData = [zeros(noNeurons*lagFactor, noTrain*noDirections); firingData(1:end-(noNeurons*lagFactor),:)];
 
 for i = 1: noDirections
     
@@ -228,7 +229,9 @@ function trialFinal = get_firing_rates(trialProcessed,group,scale_window)
     win = 10*(scale_window/group);
     normstd = scale_window/group;
     alpha = (win-1)/(2*normstd);
-    gaussian_window = gausswin(win,alpha)/sum(gausswin(win,alpha));
+    temp1 = -(win-1)/2 : (win-1)/2;
+    gausstemp = exp((-1/2) * (alpha * temp1/((win-1)/2)) .^ 2)';
+    gaussian_window = gausstemp/sum(gausstemp);
     
     for i = 1: size(trialProcessed,2)
 

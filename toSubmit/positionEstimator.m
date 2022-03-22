@@ -19,7 +19,7 @@ function [x,y,modelParameters]= positionEstimator(past_current_trial, modelParam
             noDirections = 8;
             group = 20;
             win = 50;
-            lagFactor = 0;
+%             lagFactor = 0;
             trialProcess =  bin_and_sqrt(past_current_trial, group, 1); % preprocessing
             trialFinal = get_firing_rates(trialProcess,group,win); % preprocessing (including smoothing)
             reachAngles = [30 70 110 150 190 230 310 350]; % given in degrees
@@ -81,7 +81,7 @@ function [x,y,modelParameters]= positionEstimator(past_current_trial, modelParam
                 
                 % introduce a time shift to the data
                 noNeurons = size(trialFinal(1,1).rates,1) - length(lowFirers);
-                firingData = [zeros(noNeurons*lagFactor,1); firingData(1:end-(noNeurons*lagFactor),:)];
+%                 firingData = [zeros(noNeurons*lagFactor,1); firingData(1:end-(noNeurons*lagFactor),:)];
 
                 indexer =  (T_end/group)-(320/group)+1;
                 avX = modelParameters.averages(indexer).avX(:,outLabel);
@@ -89,8 +89,15 @@ function [x,y,modelParameters]= positionEstimator(past_current_trial, modelParam
                 meanFiring = modelParameters.pcr(outLabel,indexer).fMean;
                 bx = modelParameters.pcr(outLabel,indexer).bx;
                 by = modelParameters.pcr(outLabel,indexer).by;
-                x = (firingData - mean(meanFiring))'*bx + avX(1:T_end);
-                y = (firingData - mean(meanFiring))'*by + avY(1:T_end);
+                x = (firingData - mean(meanFiring))'*bx + avX;
+                y = (firingData - mean(meanFiring))'*by + avY;
+                
+                                
+%                 diff_x = past_current_trial.startHandPos(1)-x(1);
+%                 x = x + diff_x;
+%                 
+%                 diff_y = past_current_trial.startHandPos(2)-y(1);
+%                 y = y + diff_y;
                 try
                     x =  x(T_end,1);
                     y = y(T_end,1);
@@ -103,15 +110,24 @@ function [x,y,modelParameters]= positionEstimator(past_current_trial, modelParam
 
                 % introduce a time shift to the data
                 noNeurons = size(trialFinal(1,1).rates,1) - length(lowFirers);
-                firingData = [zeros(noNeurons*lagFactor, 1); firingData(1:end-(noNeurons*lagFactor),:)];
+%                 firingData = [zeros(noNeurons*lagFactor, 1); firingData(1:end-(noNeurons*lagFactor),:)];
                 
                 avX = modelParameters.averages(13).avX(:,outLabel);
                 avY = modelParameters.averages(13).avY(:,outLabel);
                 meanFiring = modelParameters.pcr(outLabel,13).fMean;
                 bx = modelParameters.pcr(outLabel,13).bx;
                 by = modelParameters.pcr(outLabel,13).by;
+                
+           
+                
                 x = (firingData(1:length(bx)) - mean(firingData(1:length(bx))))'*bx + avX;
                 y = (firingData(1:length(by)) - mean(firingData(1:length(by))))'*by + avY;
+                
+%                 diff_x = past_current_trial.startHandPos(1)-x(1);
+%                 x = x + diff_x;
+%                 
+%                 diff_y = past_current_trial.startHandPos(2)-y(1);
+%                 y = y + diff_y;
                 try
                     x =  x(T_end,1);
                     y = y(T_end,1);
@@ -176,7 +192,9 @@ function trialFinal = get_firing_rates(trialProcessed,group,scale_window)
     win = 10*(scale_window/group);
     normstd = scale_window/group;
     alpha = (win-1)/(2*normstd);
-    gaussian_window = gausswin(win,alpha)/sum(gausswin(win,alpha));
+    temp1 = -(win-1)/2 : (win-1)/2;
+    gausstemp = exp((-1/2) * (alpha * temp1/((win-1)/2)) .^ 2)';
+    gaussian_window = gausstemp/sum(gausstemp);
     
     for i = 1: size(trialProcessed,2)
 
