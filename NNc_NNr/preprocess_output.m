@@ -1,4 +1,5 @@
 function output_processed = preprocess_output(handPos,dt)
+% Adapting the output data dimension to the input firing rates with bin size dt
     t_start = 0;
     t_end = size(handPos,2);
     edges = t_start:dt:t_end;
