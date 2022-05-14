@@ -1,5 +1,5 @@
 function neural_data = preprocess_input(spikes,dt)
-%     spikes = trial(1,1).spikes;
+%     Computing firing rates using bin size dt
     spike_times = cell(size(spikes,1),1);
     for i=1:size(spikes,1)
        t_fire=1; 
@@ -11,7 +11,7 @@ function neural_data = preprocess_input(spikes,dt)
        end
     end
 
-%     dt = 20;
+
     t_start = 0;
     t_end = size(spikes,2);
 
